@@ -20,4 +20,4 @@ Wait through the five high count-in clicks, then alternate one foot contact per 
 
 Record yourself following the track with your whole body and feet visible. Contact analysis comes next.
 
-Practice tones use [PyDub](https://github.com/jiaaro/pydub) (MIT-licensed). The app schedules five count-in clicks, then alternating left/right cues at the chosen tempo.
+Practice tones and their fade-outs use [PyDub](https://github.com/jiaaro/pydub) (MIT-licensed). The app schedules five count-in clicks, then alternating left/right cues at the chosen tempo.

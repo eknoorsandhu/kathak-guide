@@ -26,7 +26,7 @@ def click(frequency, duration):
     milliseconds = duration * 1000
     tone = Sine(frequency, sample_rate=SAMPLE_RATE).to_audio_segment(
         duration=milliseconds, volume=-3)
-    return tone.raw_data
+    return tone.fade_out(milliseconds).raw_data
 
 
 def create_drill(output, bpm=60, contacts=16, first_foot="left"):
