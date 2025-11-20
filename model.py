@@ -1,6 +1,7 @@
 """beat track + video review bits"""
 
 import argparse
+import csv
 import json
 import math
 import subprocess
@@ -12,10 +13,11 @@ from pydub.generators import Sine
 
 SAMPLE_RATE = 44100
 COUNT_IN = 5
+TIMING_ALLOWANCE_MS = 180
 STATUS_LABELS = {
-    "on_time": "Within timing allowance", "early": "Early candidate",
-    "late": "Late candidate", "wrong_foot": "Other-foot candidate",
-    "not_detected": "No contact detected", "unmatched": "Unmatched detection",
+    "on_time": "On beat", "early": "Check timing",
+    "late": "Check timing", "wrong_foot": "Couldn't assess",
+    "not_detected": "Couldn't assess", "unmatched": "Couldn't assess",
 }
 
 
@@ -100,7 +102,7 @@ def expected_contacts(drill, count_in_start):
             for index in range(drill["contacts"])]
 
 
-def review_contacts(expected, hits, period, tolerance_ms=80):
+def review_contacts(expected, hits, period, tolerance_ms=TIMING_ALLOWANCE_MS):
     """find contacts near the beats but don't count one hit twice"""
     if not math.isfinite(period) or period <= 0:
         raise ValueError("The beat period must be finite and positive")
@@ -186,7 +188,48 @@ def video_info(video):
     return fps, duration
 
 
-def analyze_recording(video, drill_path, count_in_start, output, tolerance_ms=80, progress=None):
+def timing_text(event):
+    status = event["status"]
+    if status == "on_time":
+        return "Your step is close enough to the click."
+    if status == "early":
+        return "This step looks early. Try landing a little later, with the click."
+    if status == "late":
+        return "This step looks late. Try landing a little sooner, with the click."
+    if status == "wrong_foot":
+        return (f"The app tracked your {event['detected_foot']} foot instead of your "
+                f"{event['expected_foot']}. Replay to check.")
+    if status == "not_detected":
+        return "The camera couldn't clearly track this step. That doesn't mean you missed it."
+    return "This movement wasn't matched to a practice step."
+
+
+def save_event_frames(video, events, output, duration):
+    folder = output / "events"
+    folder.mkdir(parents=True, exist_ok=True)
+    cap = cv2.VideoCapture(str(video))
+    try:
+        for index, event in enumerate(events, 1):
+            # no hit? use the expected time so there's still something to look at
+            time = event["detected_time"] if event["detected_time"] is not None else event["expected_time"]
+            event.update(time=time, timing=timing_text(event), watch_start=max(0, time - .5),
+                         watch_end=min(duration, time + .5), image=None)
+            cap.set(cv2.CAP_PROP_POS_MSEC, time * 1000)
+            ok, frame = cap.read()
+            if not ok:
+                continue
+            if event["x"] is not None and event["y"] is not None:
+                height, width = frame.shape[:2]
+                cv2.circle(frame, (round(event["x"] * width), round(event["y"] * height)), 12, (58, 190, 60), 2)
+            filename = f"event_{index:03d}.jpg"
+            if not cv2.imwrite(str(folder / filename), frame):
+                raise OSError(f"Could not save review frame: {filename}")
+            event["image"] = f"events/{filename}"
+    finally:
+        cap.release()
+
+
+def analyze_recording(video, drill_path, count_in_start, output, tolerance_ms=TIMING_ALLOWANCE_MS, progress=None):
     """check the clip against the saved drill and write out what we found"""
     output, video, drill_path = Path(output), Path(video).resolve(), Path(drill_path).resolve()
     if (output / "results.json").exists():
@@ -215,8 +258,13 @@ def analyze_recording(video, drill_path, count_in_start, output, tolerance_ms=80
             <= expected[-1]["expected_time"] + .45 * period]
     update(88, "Assigning candidates to expected contacts")
     result = review_contacts(expected, hits, period, tolerance_ms)
-    update(92, "Saving review results")
-    output.mkdir(parents=True, exist_ok=True)
+    update(92, "Saving expected and detected review moments")
+    save_event_frames(video, result["events"], output, duration)
+    fields = ["beat", "status", "expected_foot", "detected_foot", "expected_time", "detected_time", "offset_ms", "watch_start", "watch_end"]
+    with (output / "drill-review.csv").open("w", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(file, fieldnames=fields, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(result["events"])
     report = {
         "drill": drill, "drill_path": str(drill_path), "video": str(video),
         "count_in_start": count_in_start, "tolerance_ms": tolerance_ms,
@@ -239,7 +287,7 @@ def main():
     parser.add_argument("--video")
     parser.add_argument("--drill")
     parser.add_argument("--count-in-start", type=float)
-    parser.add_argument("--tolerance-ms", type=float, default=80)
+    parser.add_argument("--tolerance-ms", type=float, default=TIMING_ALLOWANCE_MS)
     args = parser.parse_args()
     try:
         if args.video:

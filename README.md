@@ -22,7 +22,7 @@ To review a recording, give the timestamp of its first count-in click:
 python model.py --video your-video.mp4 --drill runs/practice-track/drill.json --count-in-start 2.35 --output runs/practice-review
 ```
 
-Keep the generated WAV beside its JSON. The review saves its results in `results.json`. It prefers the expected foot, then the closest unused candidate.
+Keep the generated WAV beside its JSON. The review saves results, a CSV and event pictures. It prefers the expected foot, then the closest unused candidate.
 
 MediaPipe estimates foot positions. A simple lift-and-return rule suggests contacts, but hidden feet and small lifts can be missed. Timing is approximate; no detection doesn't prove a missed step, and this isn't a dance-quality score.
 
