@@ -27,6 +27,7 @@ class Recording:
     def __init__(self, folder, frame):
         self.folder = Path(folder)
         self.frames = 0
+        self.previous = frame
         height, width = frame.shape[:2]
         self.raw = self.folder / "raw.avi"
         # OpenCV needs a code for the video format. MJPG works for this temporary AVI
@@ -36,8 +37,15 @@ class Recording:
             raise OSError("Could not create the camera recording")
 
     def write(self, frame, elapsed):
-        self.writer.write(frame)
-        self.frames += 1
+        slot = int(elapsed * FPS)
+        # camera might stall for a bit. hold the last frame so video timing doesn't shrink
+        while self.frames < slot:
+            self.writer.write(self.previous)
+            self.frames += 1
+        if self.frames == slot:
+            self.writer.write(frame)
+            self.frames += 1
+        self.previous = frame
 
     def finish(self, count_in_start):
         self.writer.release()
@@ -47,6 +55,9 @@ class Recording:
             with wave.open(str(audio_path), "wb") as audio:
                 audio.setparams(song.getparams())
                 rate = song.getframerate()
+                # the camera starts first, so put that quiet bit before the music
+                # our WAV is mono and each sample takes 2 bytes
+                audio.writeframes(bytes(round(count_in_start * rate) * 2))
                 audio.writeframes(song.readframes(song.getnframes()))
                 # keep the sound file going until the video ends
                 video_seconds = self.frames / FPS

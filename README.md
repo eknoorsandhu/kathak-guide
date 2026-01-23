@@ -28,8 +28,6 @@ Runs stay local in `runs/`, with the video, track, drill settings, results and e
 
 MediaPipe estimates foot positions. A simple lift-and-return rule suggests contacts, but it can miss or mislabel steps. Timing is approximate, no detection doesn't prove a missed step, and this isn't a dance-quality score.
 
-This version writes a frame for each camera update, so stalled capture can shorten the saved video. Its saved soundtrack starts at the first video frame.
-
 ## Code layout
 
 - `app.py`: starts the app.
