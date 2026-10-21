@@ -1,6 +1,0 @@
-audioop-lts; python_version >= '3.13'
-mediapipe
-numpy
-opencv-python
-pydub
-pygame-ce

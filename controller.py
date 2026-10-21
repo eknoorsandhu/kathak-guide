@@ -1,9 +1,11 @@
 """camera, music and keeping the app moving"""
 
 import json
+import os
 import queue
 import shutil
 import subprocess
+import sys
 import threading
 import time
 import wave
@@ -18,6 +20,11 @@ import model
 from view import View
 
 ROOT = Path(__file__).parent
+if getattr(sys, "frozen", False):
+    data_home = (Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
+                 if sys.platform == "win32"
+                 else Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share"))
+    ROOT = data_home / "KathakGuide"
 FPS = 30
 
 

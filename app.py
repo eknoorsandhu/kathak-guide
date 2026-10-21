@@ -1,9 +1,14 @@
 """opens the practice app"""
 import argparse
+import os
+import sys
+from pathlib import Path
 
 from controller import App
 
 if __name__ == "__main__":
+    if getattr(sys, "frozen", False):
+        os.environ["PATH"] = str(Path(__file__).parent / "ffmpeg") + os.pathsep + os.environ.get("PATH", "")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--camera", default="0", help="Camera index; a video path is also accepted for engineering checks")
     args = parser.parse_args()
